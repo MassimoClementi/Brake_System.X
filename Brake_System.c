@@ -22,7 +22,7 @@
 // 800us  => 0°
 // 1500us => 90°
 // 2200us => 180°
-// 250ns ad ogni singolo incremento
+// 500ns ad ogni singolo incremento (prescaler 1:2)
 
 // TIMER3 => delay
 
@@ -108,16 +108,14 @@ __interrupt(high_priority) void ISR_Alta(void) {
         PIR3bits.RXB1IF = LOW;
     }
     if (INTCONbits.TMR0IF == HIGH) {
-        ~PORTCbits.RC0;
+        PORTCbits.RC0 = ~PORTCbits.RC0;
         if (PORTCbits.RC0 == 1) {
-            timer_on = (((1400 * brake_value_degree) / 180) + 800)*4;
-            timer_on = 65536 - timer_on;
-            timer_off = 20000 - timer_on;
-            TMR0H = timer_on >> 8;
-            TMR0L = timer_on;
+            timer_on = (((1400 * brake_value_degree) / 180) + 800)*2; //incrementi TMR0
+            timer_on = 65536 - timer_on; //interrupt per overflow
+            timer_off = 40000 - timer_on;
+            WriteTimer0(timer_on);
         } else {
-            TMR0H = timer_off >> 8;
-            TMR0L = timer_off;
+            WriteTimer0(timer_off);
         }
         INTCONbits.TMR0IF = 0;
     }
@@ -168,14 +166,14 @@ int main(void) {
         }
 
         wait_time = 100; //?
-        
+
         if ((TMR3_counter - TMR3_stored) > (wait_time / 10)) {
-            
+
             if ((brake_signal_CAN == 00)&&((brake_value_inc / 2) > 1)) {
                 brake_value_inc = brake_value_inc / 2;
                 brake_value = (brake_value_inc / 17) + home_position;
                 brake_value_degree = (255 * brake_value) / 180;
-                
+
             }
             //            if ((brake_signal_CAN == 01)&&((brake_value_inc + 10) < 256)) {
             //                brake_value_inc = brake_value_inc + 10;
@@ -240,25 +238,32 @@ void board_initialization(void) { //(!!)completare
     //Configurazione CANbus
     CANInitialize(4, 6, 5, 1, 3, CAN_CONFIG_LINE_FILTER_OFF & CAN_CONFIG_SAMPLE_ONCE & CAN_CONFIG_ALL_VALID_MSG & CAN_CONFIG_DBL_BUFFER_ON);
     RCONbits.IPEN = 1;
+
+    //Azzero Flag Interrupts
     PIR3bits.RXB1IF = 0; //azzera flag interrupt can bus buffer1
     PIR3bits.RXB0IF = 0; //azzera flag interrupt can bus buffer0
-    PIE3bits.RXB1IE = 1; //abilita interrupt ricezione can bus buffer1
-    PIE3bits.RXB0IE = 1; //abilita interrupt ricezione can bus buffer0
+    INTCONbits.TMR0IF = 0;
+    PIR2bits.TMR3IF = 0; //resetta flag interrupt timer 3
+
+    //Config. Priorità
     IPR3bits.RXB1IP = 1; //interrupt alta priorità per can
     IPR3bits.RXB0IP = 1; //interrupt alta priorità per can
-    INTCONbits.GIEH = 1; //abilita interrupt alta priorità
-    INTCONbits.GIEL = 1; //abilita interrupt bassa priorità periferiche
-    INTCON2bits.INTEDG0 = 1; //interrupt su fronte di salita
     INTCON2bits.TMR0IP = 1; //interrupt alta priorità timer0
-    T0CON = 0x88; //imposta timer0, no prescaler
-    T3CON = 0x01; //abilita timer
-    PIR2bits.TMR3IF = 0; //resetta flag interrupt timer 3
     IPR2bits.TMR3IP = 0; //interrupt bassa priorità timer 3
 
+    //Config. Registri
+    T0CON = 0x80; //imposta timer0, prescaler 1:2
     TMR3H = 0x63; //<= VALORI PER AVERE UN
     TMR3L = 0xC0; //<= INTERRUPT OGNI 10ms
+    INTCON2bits.INTEDG0 = 1; //interrupt su fronte di salita [SERVE?]
 
+    //Enable Interrupts
+    PIE3bits.RXB1IE = 1; //abilita interrupt ricezione can bus buffer1
+    PIE3bits.RXB0IE = 1; //abilita interrupt ricezione can bus buffer0
+    INTCONbits.TMR0IE = 1; //abilita interrupt timer 0
     PIE2bits.TMR3IE = 1; //abilita interrupt timer 3
+    INTCONbits.GIEH = 1; //abilita interrupt alta priorità
+    INTCONbits.GIEL = 1; //abilita interrupt bassa priorità periferiche
 
     //Configurazione ADC
     ADCON1 = 0b01110111;
@@ -274,5 +279,6 @@ void board_initialization(void) { //(!!)completare
     ADCON2bits.ADFM = 0; //Right Justified
     ADCON0bits.ADON = 1;
 
+    T3CON = 0x01; //abilita timer
     delay_ms(2);
 }
