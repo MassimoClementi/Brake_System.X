@@ -86,6 +86,9 @@ unsigned char brake_value_degree = 0; //0-180
 unsigned char home_position = 0;
 unsigned char ADC_wait_counter = 0;
 unsigned char ADC_wait_factor = 0;
+unsigned char gap = 0;
+unsigned char inc = 0;
+unsigned char ramp_speed = 0;
 
 //////////////////////
 //    INTERRUPT     //
@@ -173,20 +176,31 @@ int main(void) {
                 brake_value_inc = brake_value_inc / 2;
                 brake_value = (brake_value_inc / 17) + home_position;
                 brake_value_degree = (255 * brake_value) / 180;
-
             }
-            //            if ((brake_signal_CAN == 01)&&((brake_value_inc + 10) < 256)) {
-            //                brake_value_inc = brake_value_inc + 10;
-            //                brake_value = brake_value_inc / 17;
-            //            }
-            //            if ((brake_signal_CAN == 10)&&(((brake_value_inc * 2) + 1) < 256)) {
-            //                brake_value_inc = (brake_value_inc * 2) + 1;
-            //                brake_value = brake_value_inc / 17;
-            //            }
-            //            if ((brake_signal_CAN == 11)&&(brake_value_inc * brake_value_inc < 256)) {
-            //                brake_value_inc = brake_value_inc*brake_value_inc;
-            //                brake_value = brake_value_inc / 17;
-            //            }
+
+            if ((brake_signal_CAN > 00)&&((255 - brake_value) != 0)) {
+                if (brake_signal_CAN == 01) { //LOW
+                    ramp_speed = 20; //verificare valore
+                }
+                if (brake_signal_CAN == 10) { //MEDIUM
+                    ramp_speed = 10; //verificare valore
+                }
+                if (brake_signal_CAN == 11) { //HIGH
+                    ramp_speed = 5; //verificare valore
+                }
+
+                gap = 255 - brake_value_inc;
+                inc = ((gap / ramp_speed)*(gap / ramp_speed));
+                if (inc < 1) {
+                    brake_value_inc = 255;
+                    brake_value = (brake_value_inc / 17) + home_position;
+                    brake_value_degree = (255 * brake_value) / 180;
+                } else {
+                    brake_value_inc = brake_value_inc + inc;
+                    brake_value = (brake_value_inc / 17) + home_position;
+                    brake_value_degree = (255 * brake_value) / 180;
+                }
+            }
             ADC_wait_counter++;
             TMR3_stored = TMR3_counter;
         }
