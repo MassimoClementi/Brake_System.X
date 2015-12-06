@@ -45,7 +45,7 @@
 //////////////////////////////
 
 #define brake_signal 0b00000000000000000000000000110 //(!!) impostare
-#define status_id 0b00000000000000000000000000110 //(!!) impostare
+#define status_id 0b00000000000000000000000000100 //(!!) impostare
 
 //Prototitpi delle funzioni
 void board_initialization(void);
@@ -85,7 +85,6 @@ unsigned char brake_value = 0; //0-15
 unsigned char brake_value_degree = 0; //0-180
 unsigned char home_position = 0;
 unsigned char ADC_wait_counter = 0;
-unsigned char ADC_wait_factor = 0;
 unsigned char gap = 0;
 unsigned char inc = 0;
 unsigned char ramp_speed = 0;
@@ -159,16 +158,12 @@ int main(void) {
             PORTBbits.RB0 = HIGH; //accendi led errore
         }
 
-        if (ADC_wait_counter == 255) { //polling trimmer ogni 1020 cicli in modo
-            ADC_wait_factor++; //da velocizzare il programma
-            if (ADC_wait_factor == 4) {
-                ADC_Read();
-                ADC_wait_factor = 0;
-            }
+        if (ADC_wait_counter == 50) { //polling trimmer ogni 50 cicli
+            ADC_Read();
             ADC_wait_counter = 0;
         }
 
-        wait_time = 100; //?
+        wait_time = 20;
 
         if ((TMR3_counter - TMR3_stored) > (wait_time / 10)) {
 
@@ -178,7 +173,7 @@ int main(void) {
                 brake_value_degree = (255 * brake_value) / 180;
             }
 
-            if ((brake_signal_CAN > 00)&&((255 - brake_value) != 0)) {
+            if ((brake_signal_CAN != 00)&&((255 - brake_value) != 0)) {
                 if (brake_signal_CAN == 01) { //LOW
                     ramp_speed = 20; //verificare valore
                 }
@@ -201,9 +196,9 @@ int main(void) {
                     brake_value_degree = (255 * brake_value) / 180;
                 }
             }
-            ADC_wait_counter++;
             TMR3_stored = TMR3_counter;
         }
+        ADC_wait_counter++;
     }
 }
 
