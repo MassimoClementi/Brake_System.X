@@ -156,9 +156,9 @@ int main(void) {
             PORTBbits.RB0 = HIGH; //accendi led errore
         }
 
-        if (ADC_wait_counter = 255) { //polling trimmer ogni 1020 cicli in modo
+        if (ADC_wait_counter == 255) { //polling trimmer ogni 1020 cicli in modo
             ADC_wait_factor++; //da velocizzare il programma
-            if (ADC_wait_factor = 4) {
+            if (ADC_wait_factor == 4) {
                 ADC_Read();
                 ADC_wait_factor = 0;
             }

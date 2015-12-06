@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project>
-  <executable name="dist/default/debug\Brake_System.X.debug.hex">
+  <executable name="dist/default/production\Brake_System.X.production.hex">
     <memory name="program">
       <units>bytes</units>
       <length>16384</length>
-      <used>8509</used>
-      <free>7875</free>
+      <used>9652</used>
+      <free>6732</free>
     </memory>
     <memory name="data">
       <units>bytes</units>
       <length>768</length>
-      <used>100</used>
-      <free>668</free>
+      <used>150</used>
+      <free>618</free>
     </memory>
   </executable>
 </project>
