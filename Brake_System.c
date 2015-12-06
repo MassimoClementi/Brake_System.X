@@ -167,6 +167,8 @@ int main(void) {
             ADC_wait_counter = 0;
         }
 
+        wait_time = 100; //?
+        
         if ((TMR3_counter - TMR3_stored) > (wait_time / 10)) {
             
             if ((brake_signal_CAN == 00)&&((brake_value_inc / 2) > 1)) {
