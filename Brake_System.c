@@ -59,8 +59,9 @@ void ADC_Read(void);
 CANmessage msg;
 bit remote_frame;
 bit Tx_retry;
-unsigned long id = 0;
-BYTE status_array [8] = 0; //!!MODIFICARE
+unsigned long remote_frame_id = 0;
+BYTE status_array [8] = {0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA}; //Sequenza di 101010...
+unsigned char brake_signal_CAN;
 
 //Delay TMR0
 unsigned long timer_on = 0;
@@ -77,17 +78,16 @@ unsigned char number_of_measures = 8; //!! decidere
 unsigned char read = 0;
 unsigned int partial_sum = 0;
 unsigned int correction_factor = 0;
+unsigned char home_position = 0;
 
 //Program variables
-unsigned char brake_signal_CAN;
 unsigned char brake_value_inc = 0; //0-256 (fattore 17)
 unsigned char brake_value = 0; //0-15
-unsigned char brake_value_degree = 0; //0-180
-unsigned char home_position = 0;
+unsigned char brake_value_degree = 0; //0-180 gradi
 unsigned char ADC_wait_counter = 0;
 unsigned char gap = 0;
 unsigned char inc = 0;
-unsigned char ramp_speed = 0;
+unsigned char final_value = 0;
 
 //////////////////////
 //    INTERRUPT     //
@@ -99,7 +99,7 @@ __interrupt(high_priority) void ISR_Alta(void) {
         if (CANisRxReady()) {
             CANreceiveMessage(&msg);
             if (msg.RTR == HIGH) {
-                id = msg.identifier;
+                remote_frame_id = msg.identifier;
                 remote_frame = HIGH;
             }
             if (msg.identifier == brake_signal) {
@@ -119,7 +119,7 @@ __interrupt(high_priority) void ISR_Alta(void) {
         } else {
             WriteTimer0(timer_off);
         }
-        INTCONbits.TMR0IF = 0;
+        INTCONbits.TMR0IF = LOW;
     }
 }
 
@@ -129,11 +129,11 @@ __interrupt(high_priority) void ISR_Alta(void) {
 //////////////////////////
 
 __interrupt(low_priority) void ISR_Bassa(void) {
-    if (PIR2bits.TMR3IF) {
+    if (PIR2bits.TMR3IF == HIGH) {
         TMR3_counter++;
         TMR3H = 0x63;
         TMR3L = 0xC0;
-        PIR2bits.TMR3IF = 0;
+        PIR2bits.TMR3IF = LOW;
     }
 }
 
@@ -150,7 +150,7 @@ int main(void) {
     T0CONbits.TMR0ON = 1; //<= DEI REGISTRI PER IL PWM
 
     while (1) {
-        if ((remote_frame == HIGH)&&(Tx_retry = HIGH)) {
+        if (remote_frame == HIGH || Tx_retry = HIGH) {
             status_ok();
         }
 
@@ -173,27 +173,27 @@ int main(void) {
                 brake_value_degree = (255 * brake_value) / 180;
             }
 
-            if ((brake_signal_CAN != 00)&&((255 - brake_value) != 0)) {
+            if (brake_signal_CAN != 00) {
                 if (brake_signal_CAN == 01) { //LOW
-                    ramp_speed = 20; //verificare valore
+                    final_value = 150;
                 }
                 if (brake_signal_CAN == 10) { //MEDIUM
-                    ramp_speed = 10; //verificare valore
+                    final_value = 200; //verificare valore
                 }
                 if (brake_signal_CAN == 11) { //HIGH
-                    ramp_speed = 5; //verificare valore
+                    final_value = 255; //verificare valore
                 }
+                if ((final_value - brake_value_inc) != 0) {
+                    gap = final_value - brake_value_inc;
+                    inc = ((gap / 15)*(gap / 15));
+                    if (inc < 1) {
+                        brake_value_inc = final_value;
+                    } else {
+                        brake_value_inc = brake_value_inc + inc;
+                    }
+                    brake_value = (brake_value_inc / 17) + home_position;
+                    brake_value_degree = (255 * brake_value) / 180;
 
-                gap = 255 - brake_value_inc;
-                inc = ((gap / ramp_speed)*(gap / ramp_speed));
-                if (inc < 1) {
-                    brake_value_inc = 255;
-                    brake_value = (brake_value_inc / 17) + home_position;
-                    brake_value_degree = (255 * brake_value) / 180;
-                } else {
-                    brake_value_inc = brake_value_inc + inc;
-                    brake_value = (brake_value_inc / 17) + home_position;
-                    brake_value_degree = (255 * brake_value) / 180;
                 }
             }
             TMR3_stored = TMR3_counter;
@@ -204,8 +204,8 @@ int main(void) {
 
 void status_ok(void) {
     if (CANisTxReady()) {
-        if (id == status_id) {
-            CANsendMessage(id, status_array, 8, CAN_CONFIG_STD_MSG & CAN_NORMAL_TX_FRAME & CAN_TX_PRIORITY_0);
+        if (remote_frame_id == status_id) {
+            CANsendMessage(remote_frame_id, status_array, 8, CAN_CONFIG_STD_MSG & CAN_NORMAL_TX_FRAME & CAN_TX_PRIORITY_0);
             if (TXB0CONbits.TXABT || TXB1CONbits.TXABT) {
                 Tx_retry = HIGH;
             } else {
