@@ -145,12 +145,10 @@ int main(void) {
     board_initialization();
     ADC_Read();
 
-    TMR0H = 0xFF; //<= FORZIAMO IL PRIMO INTERRUPT
-    TMR0L = 0xFE; //<= DEL TIMER0 PER LE CONFIGURAZIONI
-    T0CONbits.TMR0ON = 1; //<= DEI REGISTRI PER IL PWM
+
 
     while (1) {
-        if (remote_frame == HIGH || Tx_retry = HIGH) {
+        if ((remote_frame == HIGH) || (Tx_retry = HIGH)) {
             status_ok();
         }
 
@@ -175,7 +173,7 @@ int main(void) {
 
             if (brake_signal_CAN != 00) {
                 if (brake_signal_CAN == 01) { //LOW
-                    final_value = 150;
+                    final_value = 150; //verificare valore
                 }
                 if (brake_signal_CAN == 10) { //MEDIUM
                     final_value = 200; //verificare valore
@@ -230,19 +228,6 @@ void ADC_Read(void) {
 }
 
 void board_initialization(void) { //(!!)completare
-    //Configurazione I/O
-    LATA = 0x00;
-    TRISA = 0xFF; //ALL IN
-    LATB = 0x00;
-    TRISB = 0b11111110; //RBO OUTPUT
-    LATC = 0x00;
-    TRISC = 0b11111110; //RC0 OUTPUT
-    LATD = 0x00;
-    TRISD = 0xFF;
-    LATE = 0x00;
-    TRISE = 0xFF;
-
-    ADCON1 = 0x11111110;
 
     //Configurazione CANbus
     CANInitialize(4, 6, 5, 1, 3, CAN_CONFIG_LINE_FILTER_OFF & CAN_CONFIG_SAMPLE_ONCE & CAN_CONFIG_ALL_VALID_MSG & CAN_CONFIG_DBL_BUFFER_ON);
@@ -290,4 +275,24 @@ void board_initialization(void) { //(!!)completare
 
     T3CON = 0x01; //abilita timer
     delay_ms(2);
+
+    //prima inizializzazione timer0 per pwm
+    TMR0H = 0xFF; //<= FORZIAMO IL PRIMO INTERRUPT
+    TMR0L = 0xFE; //<= DEL TIMER0 PER LE CONFIGURAZIONI
+    T0CONbits.TMR0ON = 1; //<= DEI REGISTRI PER IL PWM
+    delay_ms(2); //aspetta prima di abilitare gli i/o
+    //Configurazione I/O
+    LATA = 0x00;
+    TRISA = 0xFF; //ALL IN
+    LATB = 0x00;
+    TRISB = 0b11111110; //RBO OUTPUT
+    LATC = 0x00;
+    TRISC = 0b11111110; //RC0 OUTPUT
+    LATD = 0x00;
+    TRISD = 0xFF;
+    LATE = 0x00;
+    TRISE = 0xFF;
+
+    ADCON1 = 0x11111110;
+
 }
